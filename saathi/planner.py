@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import json
 import os
-import re
 
-from .actions import Action
+from .actions import Action, BadPlannerReply
 
 SYSTEM_PROMPT = """You are Saathi, a careful helper that completes ONE web task for a person who finds
 websites hard to use. You see the page as a list of interactive elements with numeric ids, plus its text.
@@ -32,10 +31,19 @@ class ScriptedPlanner:
 
 
 def _first_json_object(text: str) -> dict:
-    m = re.search(r"\{.*\}", text, re.S)
-    if not m:
-        raise ValueError(f"planner returned no JSON: {text[:200]!r}")
-    return json.loads(m.group())
+    """The first JSON object in the reply that names an action; prose or extra objects are ignored."""
+    decoder = json.JSONDecoder()
+    pos = text.find("{")
+    while pos != -1:
+        try:
+            obj, end = decoder.raw_decode(text, pos)
+        except json.JSONDecodeError:
+            pos = text.find("{", pos + 1)
+            continue
+        if isinstance(obj, dict) and "kind" in obj:
+            return obj
+        pos = text.find("{", end)
+    raise BadPlannerReply(f"planner returned no action JSON: {text[:200]!r}")
 
 
 class BedrockPlanner:

@@ -46,9 +46,13 @@ def main() -> None:
     from .safety import SafetyLayer
 
     if a.cmd == "eval":
-        from .evaluate import score, write_evidence
+        from .evaluate import checkpoint, score, write_evidence
 
-        md = write_evidence(score(planner=a.planner, repeats=a.repeats, devices=("phone", "pc") if a.device == "both" else (a.device,)), Path(a.out), a.planner)
+        out = Path(a.out)
+        rows = score(planner=a.planner, repeats=a.repeats,
+                     devices=("phone", "pc") if a.device == "both" else (a.device,),
+                     on_progress=lambda so_far: checkpoint(so_far, out, a.planner))
+        md = write_evidence(rows, out, a.planner)
         print(md.read_text(encoding="utf-8"))
     elif a.cmd == "demo":
         from .planner import ScriptedPlanner
