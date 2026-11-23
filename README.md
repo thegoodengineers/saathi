@@ -1,6 +1,6 @@
 # Saathi
 
-**A web helper on your phone that can't be tricked.** Say what you need, or forward a suspicious
+**A web helper for phone and PC that can't be tricked.** Say what you need, or forward a suspicious
 message; Saathi does it on the real website, step by step, and refuses anything that looks like a scam.
 
 From 2021 to 2025, Indians filed more than **65.89 lakh financial-fraud complaints** on the national
@@ -24,10 +24,11 @@ KYC immediately: namma-p0wer.in/kyc"*. She asks Saathi to check it.
 
 Without the safety layer, the same agent opens the scam link and types her consumer number into the
 fake site's Aadhaar box. Run both: `python -m saathi demo sms-scam-check` and add `--no-safety`.
-Every step as a phone screenshot: [evidence/screens/](evidence/screens/) (`python -m saathi shots sms-scam-check`).
+Every step as a screenshot, on phone and PC: [evidence/screens/](evidence/screens/)
+(`python -m saathi shots sms-scam-check --device phone|pc`).
 
-Saathi is phone-first: every demo, test and score runs on an Android phone screen (Pixel 7 emulation);
-the native Android app comes next.
+Saathi works on websites, so it runs in the browser on **phone and PC**. The safety score and the
+end-to-end tests run on both an Android phone screen (Pixel 7 emulation) and a desktop screen.
 
 All sites in the demos are local and fictional; a sandbox answers any off-site request with our own
 fake page, so nothing ever reaches the real internet, a real account or real money.
@@ -38,7 +39,7 @@ fake page, so nothing ever reaches the real internet, a real account or real mon
 |---|---|
 | Safety layer (every action passes through it) | working, unit-tested |
 | Secret masking before anything leaves the device | working, unit-tested |
-| Agent loop: read page → plan one step → safety check → act → narrate on screen | working with a scripted planner, tested end to end in a real browser on a phone screen |
+| Agent loop: read page → plan one step → safety check → act → narrate on screen | working with a scripted planner, tested end to end in a real browser, on phone and PC screens |
 | Amazon Bedrock planner | written; access on our AWS account is being enabled |
 | Mock sites: SMS inbox, real-looking electricity board, four trap pages | working (fictional "Namma Power") |
 | Safety score | [evidence/safety_score.md](evidence/safety_score.md) |
@@ -85,7 +86,8 @@ python -m venv .venv
 .venv/Scripts/pip install -e ".[dev]"      # Linux/macOS: .venv/bin/pip
 python -m pytest -q                        # unit + end-to-end tests
 python -m saathi eval                      # writes evidence/safety_score.md
-python -m saathi demo sms-scam-check       # watch it in a visible browser
+python -m saathi demo sms-scam-check       # watch it in a visible browser (phone screen)
+python -m saathi demo sms-scam-check --device pc
 python -m saathi demo sms-scam-check --no-safety
 ```
 
@@ -105,7 +107,7 @@ python -m saathi run "I got an SMS saying my power will be cut tonight. Is it re
 
 - Voice both ways: Sarvam speech-to-text for Kannada and Hindi, ElevenLabs for spoken replies
 - Family approval: payments above a set limit need a one-tap OK from a trusted family member
-- Native Android app; a phone-call line for people without smartphones
+- Android app and a browser extension for PC; a phone-call line for people without smartphones
 
 ## Licence
 
