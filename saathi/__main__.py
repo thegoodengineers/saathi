@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import time
 from pathlib import Path
 
@@ -11,6 +12,10 @@ def _ask(question: str) -> str:
 
 
 def main() -> None:
+    # Windows terminals default to a code page without ₹ or Kannada; never crash on printing them.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(prog="saathi")
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("eval", help="safety score with and without the safety layer")
