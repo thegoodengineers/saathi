@@ -79,13 +79,17 @@ Code: [saathi/safety.py](saathi/safety.py) · tests: [tests/test_safety.py](test
 
 ## Use it in your own browser (Opera, Chrome, Edge)
 
-Saathi can drive a Chromium-family browser you start yourself. Use a separate profile for it: your
-normal profile, saved passwords and logins stay out of reach. Example for Opera GX on Windows:
+Saathi drives any Chromium-family browser: Chrome, Edge, Opera, Opera GX, Brave, Vivaldi (checked on
+Opera GX 139, Chrome 157 and Edge 158). It opens the browser for you with a separate Saathi profile, so
+your normal profile, saved passwords and logins stay out of reach:
 
 ```bash
-"%LOCALAPPDATA%/Programs/Opera GX/opera.exe" --remote-debugging-port=9222 --user-data-dir="%LOCALAPPDATA%/saathi-opera"
-python -m saathi attach
+python -m saathi attach --browser opera-gx      # or chrome, edge, opera, brave, vivaldi
 ```
+
+Firefox and Safari do not allow this kind of control from outside; a Saathi browser extension is the
+planned route for them. You can also start a browser yourself with `--remote-debugging-port=9222` and
+its own `--user-data-dir`, then run `python -m saathi attach`.
 
 Then type what you want, for example *open flipkart and add 1 kg atta to the cart*. Saathi opens the
 site you named, does each step in your window and says it in the banner. It asks before anything like

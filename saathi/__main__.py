@@ -41,6 +41,8 @@ def main() -> None:
     sub.add_parser("serve", help="only serve the mock site")
     at = sub.add_parser("attach", help="drive your own browser (Opera, Chrome, Edge) started with --remote-debugging-port")
     at.add_argument("--port", type=int, default=9222)
+    at.add_argument("--browser", default=None,
+                    help="open this browser for you first: chrome, edge, opera, opera-gx, brave, vivaldi")
     at.add_argument("--allow", nargs="*", default=[], help="sites Saathi may open, e.g. www.myscheme.gov.in")
     at.add_argument("--open", default=None, help="URL to open first")
     at.add_argument("--goal", default=None, help="do this one task and stop (otherwise asks in a loop)")
@@ -89,10 +91,12 @@ def main() -> None:
     elif a.cmd == "attach":
         from urllib.parse import urlparse
 
-        from .browser import connect_browser
+        from .browser import connect_browser, launch_browser
         from .planner import BedrockPlanner
 
         planner = BedrockPlanner()
+        if a.browser:
+            launch_browser(a.browser, a.port)
         with connect_browser(a.port, a.open) as page:
             print(f"Connected to your browser tab: {page.url}")
             while True:

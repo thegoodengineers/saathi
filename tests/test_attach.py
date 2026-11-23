@@ -85,3 +85,18 @@ def test_attach_explains_how_to_start_the_browser_when_none_is_running():
         with connect_browser(_free_port()):
             pass
     assert "--remote-debugging-port" in str(e.value)
+
+
+def test_firefox_and_safari_get_a_clear_message():
+    from saathi.browser import find_browser
+    for name in ("firefox", "safari"):
+        with pytest.raises(SystemExit) as e:
+            find_browser(name)
+        assert "extension" in str(e.value)
+
+
+def test_unknown_browser_lists_the_choices():
+    from saathi.browser import find_browser
+    with pytest.raises(SystemExit) as e:
+        find_browser("netscape")
+    assert "chrome" in str(e.value) and "opera" in str(e.value)
