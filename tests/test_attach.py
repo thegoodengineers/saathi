@@ -8,6 +8,7 @@ import os
 import shutil
 import socket
 import subprocess
+import sys
 import time
 import urllib.request
 
@@ -47,19 +48,27 @@ def users_browser(tmp_path):
     if not exe:
         pytest.skip("no Chromium-family browser found")
     port = _free_port()
-    proc = subprocess.Popen([exe, "--headless=new", f"--remote-debugging-port={port}", f"--user-data-dir={tmp_path}",
-                             "--no-first-run", "--no-default-browser-check", "about:blank"],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    deadline = time.time() + 20
+    args = [exe, "--headless=new", f"--remote-debugging-port={port}", f"--user-data-dir={tmp_path / 'profile'}",
+            "--no-first-run", "--no-default-browser-check"]
+    if sys.platform.startswith("linux"):  # CI containers: Chromium's sandbox is unavailable there
+        args += ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+    log = open(tmp_path / "browser.log", "w")
+    proc = subprocess.Popen(args + ["about:blank"], stdout=log, stderr=subprocess.STDOUT)
+    deadline = time.time() + 30
     while time.time() < deadline:
         try:
             urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version", timeout=1)
             break
         except OSError:
+            if proc.poll() is not None:
+                break
             time.sleep(0.3)
     else:
         proc.kill()
-        pytest.fail("browser did not open its debugging port")
+    if proc.poll() is not None or time.time() >= deadline:
+        proc.kill()
+        log.close()
+        pytest.fail(f"{exe} did not open its debugging port:\n" + (tmp_path / "browser.log").read_text()[-1500:])
     yield port, proc
     proc.terminate()
     try:
