@@ -16,6 +16,8 @@ SNAPSHOT_JS = r"""
     const wrap = el.closest('label'); if (wrap) return wrap.innerText.trim();
     return el.getAttribute('aria-label') || '';
   };
+  // Ids are per snapshot: an element hidden since the last one must not keep an id that is reused.
+  document.querySelectorAll('[data-saathi-id]').forEach(el => el.removeAttribute('data-saathi-id'));
   const out = []; let n = 0;
   for (const el of document.querySelectorAll(sel)) {
     if (el.closest('[data-saathi-ui]') || !visible(el)) continue;

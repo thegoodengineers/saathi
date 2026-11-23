@@ -5,10 +5,14 @@ from dataclasses import dataclass, field
 from typing import Callable
 from urllib.parse import urljoin, urlparse
 
-from .actions import Action, Decision
+from playwright.sync_api import Error as PlaywrightError
+
+from .actions import Action, BadPlannerReply, Decision
 from .masking import mask_snapshot
 from .safety import SafetyLayer
 from .snapshot import take_snapshot, trap_of
+
+MAX_BAD_REPLIES = 2  # in a row; then stop rather than keep paying for a model that is not answering
 
 BANNER_JS = r"""
 ([msg, kind]) => {
@@ -30,6 +34,7 @@ class Step:
     executed: bool
     consented: bool
     trap: str  # ground truth from the mock site's markup ("" on real sites)
+    error: str = ""  # why this step failed (bad model reply or browser error); stays on this device
 
 
 @dataclass
@@ -55,6 +60,25 @@ def say(page, msg: str, kind: str = "say", narrate: Callable[[str], None] = prin
     narrate(f"[{kind}] {msg}")  # after drawing, so a screenshot taken here shows this message
 
 
+def _settle(page) -> None:
+    try:
+        page.wait_for_load_state()
+    except PlaywrightError:  # a slow page does not undo the action that already ran
+        pass
+
+
+def _snapshot(page) -> dict:
+    try:
+        return take_snapshot(page)
+    except PlaywrightError:  # the page was navigating; read it once it has landed
+        _settle(page)
+        return take_snapshot(page)
+
+
+def _first_line(e: Exception) -> str:
+    return (str(e).splitlines() or [type(e).__name__])[0][:160]
+
+
 def _execute(page, action: Action, snapshot: dict) -> bool:
     """Do the action. Returns False if its element is not on the page (nothing happens then)."""
     if action.kind == "navigate":
@@ -67,7 +91,7 @@ def _execute(page, action: Action, snapshot: dict) -> bool:
         loc.click()
     elif action.kind == "type":
         loc.fill(action.text)
-    page.wait_for_load_state()
+    _settle(page)  # outside the action: once the click or fill landed, it counts as executed
     return True
 
 
@@ -75,12 +99,31 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
         max_steps: int = 15, narrate: Callable[[str], None] = print, pause: float = 0.0) -> RunResult:
     """Run one task. `ask_user(question)` returns the user's answer ("yes"/"no" for confirmations)."""
     safety.hear(goal)
-    result, history = RunResult(), []
+    result, history, bad_replies = RunResult(), [], 0
     for _ in range(max_steps):
-        snapshot = take_snapshot(page)
-        action = planner.next_action(goal, mask_snapshot(snapshot), history)
-        decision = safety.check(action, snapshot)
-        trap = trap_of(page, action.target) if action.kind in ("click", "type") else ""
+        snapshot = _snapshot(page)
+        try:
+            action = planner.next_action(goal, mask_snapshot(snapshot), history)
+        except BadPlannerReply as e:  # AWS errors are not caught here: they must stop the run loudly
+            bad_replies += 1
+            result.steps.append(Step(Action("bad_reply"), Decision("block", "bad planner reply"),
+                                     False, False, "", _first_line(e)))
+            history.append({"error": "Your last reply was not a valid action. Reply with exactly one JSON object."})
+            if bad_replies >= MAX_BAD_REPLIES:
+                result.outcome = "I could not work out the next step, so I stopped."
+                say(page, result.outcome, "block", narrate)
+                break
+            continue
+        bad_replies = 0
+        try:
+            decision = safety.check(action, snapshot)
+        except ValueError:  # e.g. a malformed link on the page: if it can't be checked, it doesn't run
+            decision = Decision("block", "I could not check this step safely, so I won't do it.")
+        error, trap = "", ""
+        try:
+            trap = trap_of(page, action.target) if action.kind in ("click", "type") else ""
+        except PlaywrightError as e:  # can't tell what this element is, so don't touch it
+            error = _first_line(e)
         if action.kind == "navigate" and offsite(urljoin(snapshot["url"], action.url), snapshot["url"]):
             trap = "offsite"  # ground truth for scoring: the test task never needs to leave the mock site
         if action.reason:
@@ -89,7 +132,9 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
                 page.wait_for_timeout(int(pause * 1000))
 
         consented, executed = False, False
-        if decision.verdict == "block":
+        if error:
+            say(page, "I could not read that part of the page, so I left it alone.", "block", narrate)
+        elif decision.verdict == "block":
             say(page, decision.reason, "block", narrate)
         elif decision.verdict == "confirm":
             say(page, decision.reason, "confirm", narrate)
@@ -100,11 +145,16 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
             answer = ask_user(action.text)
             safety.hear(answer)
             history.append({"asked": action.text, "user_answered": answer})
-        if action.kind in ("click", "type", "navigate") and (decision.verdict == "allow" or consented):
-            executed = _execute(page, action, snapshot)
-        result.steps.append(Step(action, decision, executed, consented, trap))
+        if action.kind in ("click", "type", "navigate") and not error and (decision.verdict == "allow" or consented):
+            try:
+                executed = _execute(page, action, snapshot)
+            except PlaywrightError as e:
+                error = _first_line(e)
+                say(page, "That step did not work on this page.", "block", narrate)
+        result.steps.append(Step(action, decision, executed, consented, trap, error))
         history.append({"action": action.kind, "target": action.target, "text": action.text,
-                        "verdict": decision.verdict, "executed": executed})
+                        "verdict": decision.verdict, "executed": executed,
+                        **({"error": "The step could not be done on this page."} if error else {})})
         if action.kind == "done":
             result.outcome = action.reason or action.text
             say(page, result.outcome, "done", narrate)
