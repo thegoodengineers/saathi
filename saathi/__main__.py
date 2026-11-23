@@ -25,7 +25,7 @@ def main() -> None:
     d.add_argument("--device", choices=["phone", "pc"], default="phone")
     r = sub.add_parser("run", help="do a task with the Bedrock planner")
     r.add_argument("goal")
-    r.add_argument("--start", default="mock", help="'mock' or a URL to start from")
+    r.add_argument("--start", default="mock", help="'mock', 'mock/<page>.html' or a URL to start from")
     r.add_argument("--allow", nargs="*", default=[], help="extra hosts Saathi may open")
     r.add_argument("--device", choices=["phone", "pc"], default="phone")
     sh = sub.add_parser("shots", help="save phone screenshots of every step of a scenario")
@@ -61,8 +61,11 @@ def main() -> None:
         from .planner import BedrockPlanner
 
         planner = BedrockPlanner()
-        with mock_server() as base, open_browser(headless=False, sandbox_offsite=False, mobile=a.device == "phone") as page:
-            start = base if a.start == "mock" else a.start
+        on_mock = a.start == "mock" or a.start.startswith("mock/")
+        # On the mock site, keep the sandbox on: look-alike links get our fake page, never the internet.
+        with mock_server() as base, open_browser(headless=False, sandbox_offsite=on_mock,
+                                                 mobile=a.device == "phone") as page:
+            start = base + a.start[5:] if on_mock else a.start  # "mock/sms.html" -> base + "sms.html"
             from urllib.parse import urlparse
 
             allowed = {"127.0.0.1", "localhost", urlparse(start).hostname or ""} | set(a.allow)
