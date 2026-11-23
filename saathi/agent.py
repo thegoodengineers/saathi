@@ -48,11 +48,11 @@ def offsite(url: str, current: str) -> bool:
 
 
 def say(page, msg: str, kind: str = "say", narrate: Callable[[str], None] = print) -> None:
-    narrate(f"[{kind}] {msg}")
     try:
         page.evaluate(BANNER_JS, [msg, kind])
     except Exception:  # page mid-navigation; the terminal line is enough
         pass
+    narrate(f"[{kind}] {msg}")  # after drawing, so a screenshot taken here shows this message
 
 
 def _execute(page, action: Action, snapshot: dict) -> bool:

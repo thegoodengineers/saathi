@@ -25,6 +25,10 @@ def main() -> None:
     r.add_argument("goal")
     r.add_argument("--start", default="mock", help="'mock' or a URL to start from")
     r.add_argument("--allow", nargs="*", default=[], help="extra hosts Saathi may open")
+    sh = sub.add_parser("shots", help="save phone screenshots of every step of a scenario")
+    sh.add_argument("scenario", choices=["sms-scam-check", "hidden-instructions", "fake-kyc", "normal-bill-payment"])
+    sh.add_argument("--no-safety", action="store_true")
+    sh.add_argument("--out", default="evidence/screens")
     sub.add_parser("serve", help="only serve the mock site")
     a = ap.parse_args()
 
@@ -61,6 +65,11 @@ def main() -> None:
             page.goto(start)
             run(a.goal, page, planner, SafetyLayer(allowed_hosts=allowed), ask_user=_ask, pause=0.8)
             page.wait_for_timeout(4000)
+    elif a.cmd == "shots":
+        from .shots import capture
+
+        for f in capture(a.scenario, Path(a.out), safety=not a.no_safety):
+            print(f)
     elif a.cmd == "serve":
         with mock_server(8765) as base:
             print(f"Mock site at {base}  (Ctrl+C to stop)")

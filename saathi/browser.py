@@ -37,15 +37,19 @@ def mock_server(port: int = 0):
 
 
 @contextlib.contextmanager
-def open_browser(headless: bool = True, sandbox_offsite: bool = True):
+def open_browser(headless: bool = True, sandbox_offsite: bool = True, mobile: bool = True):
     """Launch Edge (or Playwright's Chromium). With sandbox_offsite, any request that leaves
-    127.0.0.1/localhost gets a fake page instead of touching the real internet."""
+    127.0.0.1/localhost gets a fake page instead of touching the real internet. With mobile, the page
+    runs as an Android phone (screen size, touch, mobile user agent): Saathi is phone-first."""
     from playwright.sync_api import sync_playwright
 
     channel = os.environ.get("SAATHI_BROWSER_CHANNEL", "msedge" if os.name == "nt" else "")
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=headless, channel=channel or None)
-        context = browser.new_context(viewport={"width": 1100, "height": 760})
+        if mobile:
+            context = browser.new_context(**p.devices["Pixel 7"])
+        else:
+            context = browser.new_context(viewport={"width": 1100, "height": 760})
         context.set_default_timeout(5000)  # a missing element fails fast instead of hanging
         if sandbox_offsite:
             def _route(route):
