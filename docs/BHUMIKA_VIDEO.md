@@ -10,7 +10,7 @@ the portal closes 11:59 PM).
 - Say only what is true today. The demo shows what the repo really does. Anything not built yet is
   said as "next" or "on build day".
 - In the demo, the steps are **scripted** so the safety layer can be tested exactly. Say that plainly.
-  If Abhijeet's real-planner results are ready (see `docs/ABHIJEET_AWS.md`), add the optional part 4b.
+  Part 4b shows the real AI model's results (Abhijeet's run, `evidence/safety_score_bedrock.md`).
 - Numbers on screen and in the voice-over: only the ones in this file. Each has a source.
 - Calm, plain voice. No hype words ("revolutionary", "world's first"). Speak slowly.
 - No other product names, and no mention of tools used to make the project (team rule).
@@ -24,7 +24,7 @@ the portal closes 11:59 PM).
   cd saathi
   python -m venv .venv
   .venv/Scripts/pip install -e ".[dev]"
-  python -m pytest -q        # should say 27 passed (or more)
+  python -m pytest -q        # should say 59 passed (or more)
   ```
 - The deck (Google Slides, `TheGoodEngineers_Track2`), from Chirag.
 - Screen recorder: **OBS Studio** (free) at 1920x1080, or Windows **Win + Alt + R** (Xbox Game Bar).
@@ -90,11 +90,11 @@ Optional, 15 seconds, PC view:
 
 > "The same works in a browser on a PC."
 
-### Part 4b (optional, only if `evidence/safety_score_bedrock.md` exists on GitHub). 20 seconds
+### Part 4b. The real AI (20-25 seconds), on screen: `evidence/safety_score_bedrock.md` on GitHub
 
-Show that file on GitHub and read its two bold lines exactly as written, for example:
-> "We also ran the real planner, Amazon Nova on Bedrock, on the same scam pages. With the safety layer,
-> [read the line]. Without it, [read the line]."
+> "We also let a real AI model, Amazon Nova on Bedrock, decide every step on the same pages. On its own,
+> it typed the OTP that a hidden note on the page told it to, and it opened the scam link. With Saathi's
+> safety layer, zero of eighty unsafe actions went through. Without it, seventeen out of seventeen did."
 
 ### Part 5. Architecture (2:50-3:30), on screen: deck slide 5
 
@@ -107,9 +107,9 @@ Show that file on GitHub and read its two bold lines exactly as written, for exa
 ### Part 6. Proof (3:30-3:55), on screen: `evidence/safety_score.md` on GitHub, then the green CI tick
 
 > "We measure this, not just say it. One command runs the same agent with and without the safety layer
-> on our scam pages, on a phone screen and a PC screen. With the layer, zero trap actions ran. Without
-> it, twenty out of twenty did. And no normal step was blocked by mistake. Twenty-seven automated tests
-> run on every change."
+> on our scam pages, on a phone screen and a PC screen, both with scripted steps and with the real AI.
+> With the layer, nothing unsafe went through, and no normal step was blocked by mistake. Fifty-nine
+> automated tests run on every change."
 
 ### Part 7. Close (3:55-4:10), on screen: deck slide 8, then the repo link
 
