@@ -8,7 +8,7 @@ from urllib.parse import urljoin, urlparse
 from playwright.sync_api import Error as PlaywrightError
 
 from .actions import Action, BadPlannerReply, Decision
-from .masking import mask_snapshot
+from .masking import mask_snapshot, mask_text
 from .safety import SafetyLayer
 from .snapshot import take_snapshot, trap_of
 
@@ -104,7 +104,8 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
     for _ in range(max_steps):
         snapshot = _snapshot(page)
         try:
-            action = planner.next_action(goal, mask_snapshot(snapshot), history)
+            # The user's own words are masked too: "my Aadhaar is ..." stays on this device.
+            action = planner.next_action(mask_text(goal), mask_snapshot(snapshot), history)
         except BadPlannerReply as e:  # AWS errors are not caught here: they must stop the run loudly
             bad_replies += 1
             result.steps.append(Step(Action("bad_reply"), Decision("block", "bad planner reply"),
@@ -145,7 +146,7 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
         if action.kind == "ask_user" and decision.verdict == "allow":
             answer = ask_user(action.text)
             safety.hear(answer)
-            history.append({"asked": action.text, "user_answered": answer})
+            history.append({"asked": action.text, "user_answered": mask_text(answer)})
         if action.kind in ("click", "type", "navigate") and not error and (decision.verdict == "allow" or consented):
             try:
                 executed = _execute(page, action, snapshot)
@@ -154,9 +155,9 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
                 say(page, "That step did not work on this page.", "block", narrate)
         result.steps.append(Step(action, decision, executed, consented, trap, error))
         refused = decision.verdict == "block" or (decision.verdict == "confirm" and not consented)
-        history.append({"action": action.kind, "target": action.target, "url": action.url, "text": action.text,
-                        "verdict": decision.verdict, "executed": executed,
-                        **({"refused_because": decision.reason or "the user said no"} if refused else {}),
+        history.append({"action": action.kind, "target": action.target, "url": mask_text(action.url),
+                        "text": mask_text(action.text), "verdict": decision.verdict, "executed": executed,
+                        **({"refused_because": mask_text(decision.reason or "the user said no")} if refused else {}),
                         **({"error": "The step could not be done on this page."} if error else {})})
         if refused and action.kind in ("click", "type", "navigate"):
             key = (action.kind, action.target, action.url, action.text)

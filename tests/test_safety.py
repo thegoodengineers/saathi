@@ -162,3 +162,30 @@ def test_mpin_and_security_code_boxes_are_secret():
     assert is_secret_field({"name": "tpin"})
     assert is_secret_field({"placeholder": "Security code"})
     assert not is_secret_field({"label": "Pincode"})
+
+
+def test_payment_style_buttons_ask_first_but_plain_links_do_not():
+    for text in ("Make payment", "Proceed to payment", "Recharge now", "Approve", "Accept request",
+                 "Donate ₹100", "Withdraw", "Authorise", "Purchase", "Subscribe"):
+        page = dict(PAGE, elements=[{"id": 1, "tag": "button", "text": text}])
+        assert layer().check(Action("click", 1), page).verdict == "confirm", text
+    for text in ("Back to bill payment", "Payment history", "Unsubscribe from tips"):
+        page = dict(PAGE, elements=[{"id": 1, "tag": "a", "text": text, "href": "help.html"}])
+        assert layer().check(Action("click", 1), page).verdict == "allow", text
+
+
+def test_icon_button_labelled_pay_asks_first():
+    page = dict(PAGE, elements=[{"id": 1, "tag": "button", "text": "→", "label": "Pay ₹840"}])
+    d = layer().check(Action("click", 1), page)
+    assert d.verdict == "confirm" and "Pay ₹840" in d.reason
+
+
+def test_masking_covers_otp_first_wording_and_every_field():
+    assert mask_text("482913 is your OTP for login") == "[otp hidden] is your OTP for login"
+    assert "482913" not in mask_text("Use 482913 as your one time password")
+    assert mask_text("Bill ₹1500, due 30 Nov") == "Bill ₹1500, due 30 Nov"
+    snap = {"url": "http://x/kyc?id=123456789012", "title": "Card 4111 1111 1111 1111",
+            "text": "", "elements": [{"id": 1, "text": "Aadhaar 1234 5678 9012", "label": "4111 1111 1111 1111",
+                                      "placeholder": "", "href": "/v?a=123456789012"}]}
+    masked = str(mask_snapshot(snap))
+    assert "123456789012" not in masked and "4111" not in masked and "1234 5678 9012" not in masked

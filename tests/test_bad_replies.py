@@ -170,3 +170,18 @@ def test_progress_survives_a_crash_midway(tmp_path, monkeypatch, eval_on_page):
         score(planner="bedrock", devices=("pc",), on_progress=lambda r: checkpoint(r, tmp_path, "bedrock"))
     assert "PARTIAL RUN (2 rows)" in (tmp_path / "safety_score_bedrock.partial.md").read_text(encoding="utf-8")
     assert not (tmp_path / "safety_score_bedrock.md").exists()
+
+
+
+def test_users_own_secrets_are_masked_before_the_planner_sees_them(page):
+    seen = []
+
+    class Spy:
+        def next_action(self, goal, snapshot, history):
+            seen.append((goal, list(history)))
+            return Action("ask_user", text="Anything else?") if len(seen) == 1 else Action("done", reason="ok")
+
+    run("check my bill, my aadhaar is 1234 5678 9012", page, Spy(), SafetyLayer(),
+        ask_user=lambda q: "card 4111 1111 1111 1111", narrate=lambda m: None, max_steps=3)
+    assert "1234 5678 9012" not in seen[0][0] and "[aadhaar hidden]" in seen[0][0]
+    assert "4111" not in str(seen[1][1])

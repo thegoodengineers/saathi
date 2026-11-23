@@ -8,7 +8,7 @@ Rules, in order:
 4. Only go to sites the user allowed or named ("open flipkart"). A site that imitates a known one is
    flagged as a likely scam, even if the user named something similar. Only web pages (http, https)
    are opened: never local files, data: pages or browser settings. Phone, SMS and email links ask first.
-5. Ask before anything irreversible (pay, confirm, submit, delete, send, transfer).
+5. Ask before anything irreversible (pay, confirm, submit, delete, send, transfer, recharge, approve).
 6. On a page that shows scam signs (urgency + KYC/blocked/password), ask before any action.
 """
 from __future__ import annotations
@@ -25,7 +25,10 @@ SECRET_FIELD = re.compile(
 )
 SECRET_AUTOCOMPLETE = {"one-time-code", "current-password", "new-password", "cc-number", "cc-csc"}
 IRREVERSIBLE = re.compile(
-    r"\b(pay|confirm|submit|place order|buy|transfer|send money|send|delete|remove|verify and pay)\b", re.I
+    r"\b(pay|confirm|submit|place order|buy|purchase|transfer|send money|send|delete|remove|verify and pay"
+    r"|(?:make|complete|proceed to|continue to) payment|recharge|donate|withdraw|subscribe|approve"
+    r"|authori[sz]e|accept (?:request|payment))\b",
+    re.I,
 )
 # 12 digits (optionally 4-4-4), but not part of a longer number such as a card number.
 AADHAAR = re.compile(r"(?<![\d-])(?<!\d )\d{4}[ -]?\d{4}[ -]?\d{4}(?![ -]?\d)")
@@ -68,7 +71,13 @@ def is_secret_field(el: dict) -> bool:
 
 
 def is_irreversible(el: dict) -> bool:
-    return bool(IRREVERSIBLE.search(str(el.get("text") or el.get("label") or "")))
+    return bool(IRREVERSIBLE.search(_action_words(el)))
+
+
+def _action_words(el: dict) -> str:
+    """What the control says it does. Text first, but an icon button ("→") may only say it in its label."""
+    text, label = str(el.get("text") or ""), str(el.get("label") or "")
+    return text if IRREVERSIBLE.search(text) or not label else label
 
 
 def _norm_host(host: str) -> str:
@@ -180,7 +189,7 @@ class SafetyLayer:
                 if hd:
                     return hd
             if is_irreversible(el):
-                return Decision("confirm", f"This will '{el.get('text') or el.get('label')}'. Shall I go ahead?")
+                return Decision("confirm", f"This will '{_action_words(el)}'. Shall I go ahead?")
         if scam_signs(snapshot.get("text", "")):
             return Decision("confirm", "Careful: this page shows signs of a scam (urgent threats, asks for KYC or passwords). Shall I continue?")
         return Decision("allow")

@@ -74,7 +74,7 @@ same link instead of switching to the real site, so that task stopped safely but
    flipkart-offers.shop). A site that imitates a known one is called out as a likely scam.
    Only web pages open: never a file on the device, a data: page or browser settings. Phone, SMS and
    email links ask first.
-5. Ask before anything irreversible: pay, confirm, submit, delete, send, transfer.
+5. Ask before anything irreversible: pay, confirm, submit, delete, send, transfer, recharge, approve.
 6. On a page with scam signs (urgent threats plus KYC, password or refund), ask before any action.
 
 Code: [saathi/safety.py](saathi/safety.py) · tests: [tests/test_safety.py](tests/test_safety.py)
