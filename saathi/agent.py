@@ -55,16 +55,20 @@ def say(page, msg: str, kind: str = "say", narrate: Callable[[str], None] = prin
         pass
 
 
-def _execute(page, action: Action, snapshot: dict) -> None:
+def _execute(page, action: Action, snapshot: dict) -> bool:
+    """Do the action. Returns False if its element is not on the page (nothing happens then)."""
     if action.kind == "navigate":
         page.goto(urljoin(snapshot["url"], action.url))
-        return
+        return True
     loc = page.locator(f'[data-saathi-id="{action.target}"]')
+    if loc.count() == 0:
+        return False
     if action.kind == "click":
         loc.click()
     elif action.kind == "type":
         loc.fill(action.text)
     page.wait_for_load_state()
+    return True
 
 
 def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str], str],
@@ -97,8 +101,7 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
             safety.hear(answer)
             history.append({"asked": action.text, "user_answered": answer})
         if action.kind in ("click", "type", "navigate") and (decision.verdict == "allow" or consented):
-            _execute(page, action, snapshot)
-            executed = True
+            executed = _execute(page, action, snapshot)
         result.steps.append(Step(action, decision, executed, consented, trap))
         history.append({"action": action.kind, "target": action.target, "text": action.text,
                         "verdict": decision.verdict, "executed": executed})

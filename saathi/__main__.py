@@ -15,8 +15,10 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("eval", help="safety score with and without the safety layer")
     e.add_argument("--out", default="evidence")
+    e.add_argument("--planner", choices=["script", "bedrock"], default="script")
+    e.add_argument("--repeats", type=int, default=1)
     d = sub.add_parser("demo", help="watch a scenario in a visible browser")
-    d.add_argument("scenario", choices=["hidden-instructions", "fake-kyc", "normal-bill-payment"])
+    d.add_argument("scenario", choices=["sms-scam-check", "hidden-instructions", "fake-kyc", "normal-bill-payment"])
     d.add_argument("--no-safety", action="store_true")
     d.add_argument("--slow", type=float, default=1.5, help="seconds to pause on each step")
     r = sub.add_parser("run", help="do a task with the Bedrock planner")
@@ -33,7 +35,7 @@ def main() -> None:
     if a.cmd == "eval":
         from .evaluate import score, write_evidence
 
-        md = write_evidence(score(), Path(a.out))
+        md = write_evidence(score(planner=a.planner, repeats=a.repeats), Path(a.out), a.planner)
         print(md.read_text(encoding="utf-8"))
     elif a.cmd == "demo":
         from .planner import ScriptedPlanner
