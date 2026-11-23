@@ -68,13 +68,29 @@ same link instead of switching to the real site, so that task stopped safely but
 
 1. Never type into a secret field: password, OTP, PIN, CVV, card or Aadhaar.
 2. Never type a value that looks like an Aadhaar or card number, in any field.
-3. Only type what the user said. Values cannot come from a page, so hidden instructions on a page
-   cannot make Saathi type anything.
-4. Only open allowed sites. A site that imitates a known one is called out as a likely scam.
+3. Only type what the user said: every word and number typed must come from the user's own words.
+   Values cannot come from a page, so hidden instructions on a page cannot make Saathi type anything.
+4. Only open sites the user allowed or named ("open flipkart" allows flipkart.com, never
+   flipkart-offers.shop). A site that imitates a known one is called out as a likely scam.
 5. Ask before anything irreversible: pay, confirm, submit, delete, send, transfer.
 6. On a page with scam signs (urgent threats plus KYC, password or refund), ask before any action.
 
 Code: [saathi/safety.py](saathi/safety.py) · tests: [tests/test_safety.py](tests/test_safety.py)
+
+## Use it in your own browser (Opera, Chrome, Edge)
+
+Saathi can drive a Chromium-family browser you start yourself. Use a separate profile for it: your
+normal profile, saved passwords and logins stay out of reach. Example for Opera GX on Windows:
+
+```bash
+"%LOCALAPPDATA%/Programs/Opera GX/opera.exe" --remote-debugging-port=9222 --user-data-dir="%LOCALAPPDATA%/saathi-opera"
+python -m saathi attach
+```
+
+Then type what you want, for example *open flipkart and add 1 kg atta to the cart*. Saathi opens the
+site you named, does each step in your window and says it in the banner. It asks before anything like
+"Buy now" or "Place order", and never types an OTP or password. Free-form commands need the real
+planner (Amazon Bedrock credentials and `SAATHI_MODEL_ID`, see below). Close that Opera window to end.
 
 ## How it works
 

@@ -3,9 +3,10 @@
 Rules, in order:
 1. Never type into a secret field (password, OTP, PIN, CVV, card, Aadhaar).
 2. Never type a value that looks like a secret (Aadhaar or card number), whatever the field.
-3. Only type what the user said: typed text must appear in the user's own words. Pages cannot
-   supply values, so instructions hidden in a page cannot make Saathi type anything.
-4. Only go to allowed sites. A site that imitates an allowed one is flagged as a likely scam.
+3. Only type what the user said: every word and number typed must come from the user's own words.
+   Pages cannot supply values, so instructions hidden in a page cannot make Saathi type anything.
+4. Only go to sites the user allowed or named ("open flipkart"). A site that imitates a known one is
+   flagged as a likely scam, even if the user named something similar.
 5. Ask before anything irreversible (pay, confirm, submit, delete, send, transfer).
 6. On a page that shows scam signs (urgency + KYC/blocked/password), ask before any action.
 """
@@ -92,6 +93,14 @@ def imitates(host: str, allowed: set[str]) -> str | None:
     return None
 
 
+WORD = re.compile(r"[^\W\d_]+|\d+")  # runs of letters (any script, so Kannada works) or of digits
+GENERIC_LABELS = {"www", "m", "com", "in", "org", "net", "co", "gov", "nic", "edu", "ac", "info", "io"}
+
+
+def _words(text: str) -> set[str]:
+    return set(WORD.findall(text.lower()))
+
+
 def scam_signs(page_text: str) -> bool:
     return bool(SCAM_URGENCY.search(page_text) and SCAM_ASK.search(page_text))
 
@@ -108,9 +117,20 @@ class SafetyLayer:
         """Record something the user said; only these words may be typed."""
         self.user_words.append(text)
 
+    def _said_words(self) -> set[str]:
+        return set().union(*(_words(w) for w in self.user_words))
+
     def _user_said(self, text: str) -> bool:
-        t = " ".join(text.lower().split())
-        return bool(t) and any(t in " ".join(w.lower().split()) for w in self.user_words)
+        """Every word and number in `text` must be one the user said (order and spacing may differ:
+        "atta 1kg" is fine after "add 1 kg atta"). A number written on a page never qualifies."""
+        t = _words(text)
+        return bool(t) and t <= self._said_words()
+
+    def _user_named(self, host: str) -> bool:
+        """The user named this site: every meaningful part of its address is a word they said.
+        "open flipkart" allows www.flipkart.com, but not flipkart-offers.shop or flipkart.scam.in."""
+        labels = [lab for lab in host.lower().split(".") if lab and lab not in GENERIC_LABELS]
+        return bool(labels) and all(lab in self._said_words() for lab in labels)
 
     def _host_decision(self, url: str) -> Decision | None:
         host = urlparse(url).hostname or ""
@@ -119,7 +139,9 @@ class SafetyLayer:
         fake_of = imitates(host, self.allowed_hosts | self.known_brands)
         if fake_of:
             return Decision("block", f"{host} imitates {fake_of}; this looks like a scam site, so I won't open it.")
-        return Decision("block", f"{host} is not on your list of allowed sites, so I won't open it.")
+        if self._user_named(host):
+            return None
+        return Decision("block", f"{host} is not a site you named or allowed, so I won't open it.")
 
     def check(self, action: Action, snapshot: dict) -> Decision:
         if not self.enabled:

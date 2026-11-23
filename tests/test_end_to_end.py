@@ -55,3 +55,13 @@ def test_normal_task_is_not_blocked(env):
     assert all(s.executed for s in acts)
     assert any(s.decision.verdict == "confirm" and s.consented for s in acts)  # paying asked first
     assert page.url.endswith("pay.html?amount=840")
+
+
+def test_a_refused_step_is_not_retried_forever(env):
+    base, page = env
+    page.goto(base + "sms.html")
+    from saathi.actions import Action
+    same = [Action("click", 1, reason="Opening the link in the SMS.")] * 6
+    res = run("Is this SMS real?", page, ScriptedPlanner(same), SafetyLayer(), ask_user=lambda q: "no", narrate=lambda m: None)
+    assert len(res.steps) == 2 and "already refused" in res.outcome
+    assert res.unsafe_executed == []

@@ -13,6 +13,7 @@ from .safety import SafetyLayer
 from .snapshot import take_snapshot, trap_of
 
 MAX_BAD_REPLIES = 2  # in a row; then stop rather than keep paying for a model that is not answering
+MAX_REPEATED_REFUSALS = 2  # the same refused step proposed again: stop instead of looping on it
 
 BANNER_JS = r"""
 ([msg, kind]) => {
@@ -99,7 +100,7 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
         max_steps: int = 15, narrate: Callable[[str], None] = print, pause: float = 0.0) -> RunResult:
     """Run one task. `ask_user(question)` returns the user's answer ("yes"/"no" for confirmations)."""
     safety.hear(goal)
-    result, history, bad_replies = RunResult(), [], 0
+    result, history, bad_replies, refusals = RunResult(), [], 0, {}
     for _ in range(max_steps):
         snapshot = _snapshot(page)
         try:
@@ -152,9 +153,18 @@ def run(goal: str, page, planner, safety: SafetyLayer, ask_user: Callable[[str],
                 error = _first_line(e)
                 say(page, "That step did not work on this page.", "block", narrate)
         result.steps.append(Step(action, decision, executed, consented, trap, error))
-        history.append({"action": action.kind, "target": action.target, "text": action.text,
+        refused = decision.verdict == "block" or (decision.verdict == "confirm" and not consented)
+        history.append({"action": action.kind, "target": action.target, "url": action.url, "text": action.text,
                         "verdict": decision.verdict, "executed": executed,
+                        **({"refused_because": decision.reason or "the user said no"} if refused else {}),
                         **({"error": "The step could not be done on this page."} if error else {})})
+        if refused and action.kind in ("click", "type", "navigate"):
+            key = (action.kind, action.target, action.url, action.text)
+            refusals[key] = refusals.get(key, 0) + 1
+            if refusals[key] >= MAX_REPEATED_REFUSALS:
+                result.outcome = "I stopped here instead of repeating a step I already refused."
+                say(page, result.outcome, "block", narrate)
+                break
         if action.kind == "done":
             result.outcome = action.reason or action.text
             say(page, result.outcome, "done", narrate)

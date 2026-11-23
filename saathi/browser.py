@@ -65,3 +65,28 @@ def open_browser(headless: bool = True, sandbox_offsite: bool = True, mobile: bo
         finally:
             context.close()
             browser.close()
+
+
+@contextlib.contextmanager
+def connect_browser(port: int = 9222, open_url: str | None = None):
+    """Attach to a browser the user started themselves (Opera, Chrome, Edge: any Chromium browser run with
+    --remote-debugging-port=PORT and its own --user-data-dir). Yields its most recent normal tab.
+    On exit Saathi only disconnects; the user's browser and tabs stay open."""
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.connect_over_cdp(f"http://127.0.0.1:{port}")
+        except Exception as e:
+            raise SystemExit(
+                f"Could not reach a browser on port {port}. Start it first, e.g. Opera with:\n"
+                f'  opera.exe --remote-debugging-port={port} --user-data-dir="%LOCALAPPDATA%\\saathi-opera"\n'
+                f"({type(e).__name__})") from None
+        context = browser.contexts[0] if browser.contexts else browser.new_context()
+        context.set_default_timeout(10000)
+        tabs = [pg for pg in context.pages if pg.url.startswith(("http://", "https://", "about:blank"))]
+        page = tabs[-1] if tabs else context.new_page()
+        page.bring_to_front()
+        if open_url:
+            page.goto(open_url)
+        yield page

@@ -39,6 +39,11 @@ def main() -> None:
     sh.add_argument("--out", default="evidence/screens")
     sh.add_argument("--device", choices=["phone", "pc"], default="phone")
     sub.add_parser("serve", help="only serve the mock site")
+    at = sub.add_parser("attach", help="drive your own browser (Opera, Chrome, Edge) started with --remote-debugging-port")
+    at.add_argument("--port", type=int, default=9222)
+    at.add_argument("--allow", nargs="*", default=[], help="sites Saathi may open, e.g. www.myscheme.gov.in")
+    at.add_argument("--open", default=None, help="URL to open first")
+    at.add_argument("--goal", default=None, help="do this one task and stop (otherwise asks in a loop)")
     a = ap.parse_args()
 
     from .agent import run
@@ -81,6 +86,27 @@ def main() -> None:
             page.goto(start)
             run(a.goal, page, planner, SafetyLayer(allowed_hosts=allowed), ask_user=_ask, pause=0.8)
             page.wait_for_timeout(4000)
+    elif a.cmd == "attach":
+        from urllib.parse import urlparse
+
+        from .browser import connect_browser
+        from .planner import BedrockPlanner
+
+        planner = BedrockPlanner()
+        with connect_browser(a.port, a.open) as page:
+            print(f"Connected to your browser tab: {page.url}")
+            while True:
+                goal = a.goal or input("\nSaathi > What should I do? (press Enter on an empty line to stop)\n  > ").strip()
+                if not goal:
+                    break
+                # Allowed: the site you are on now, plus any you listed. Everything else is refused.
+                allowed = {h for h in {urlparse(page.url).hostname or "", *a.allow} if h}
+                print(f"Allowed sites: {', '.join(sorted(allowed)) or 'none (use --allow)'}")
+                res = run(goal, page, planner, SafetyLayer(allowed_hosts=allowed), ask_user=_ask, pause=0.8)
+                print(f"\nSaathi: {res.outcome or 'Stopped.'}")
+                if a.goal:
+                    break
+        print("Disconnected. Your browser stays open.")
     elif a.cmd == "shots":
         from .shots import capture
 

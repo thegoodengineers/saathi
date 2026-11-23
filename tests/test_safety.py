@@ -98,3 +98,37 @@ def test_masking_hides_secrets_before_they_leave():
     assert masked["elements"][0]["value"] == "[hidden]"
     assert masked["elements"][1]["value"] == "1234567890"
     assert snap["elements"][0]["value"] == "hunter2"  # original untouched
+
+
+def test_types_words_the_user_said_in_any_order():
+    s = SafetyLayer()
+    s.hear("Open flipkart and add 1 kg atta to the cart")
+    search = {"url": "https://www.flipkart.com/", "text": "", "elements": [{"id": 1, "tag": "input", "name": "q", "label": "Search"}]}
+    assert s.check(Action("type", 1, "atta 1kg"), search).verdict == "allow"
+    assert s.check(Action("type", 1, "482913"), search).verdict == "block"  # a number from a page, never said
+    assert s.check(Action("type", 1, "atta sugar"), search).verdict == "block"  # one word not said
+
+
+def test_kannada_words_count_as_said():
+    s = SafetyLayer()
+    s.hear("ಬಿಲ್ ಪಾವತಿಸು 1234567890")
+    assert s.check(Action("type", 1, "1234567890"), PAGE).verdict == "allow"
+
+
+def test_opens_a_site_the_user_named_but_not_lookalikes():
+    s = SafetyLayer(allowed_hosts={"127.0.0.1"})
+    s.hear("Open flipkart and add 1 kg atta to the cart")
+    assert s.check(Action("navigate", url="https://www.flipkart.com/"), PAGE).verdict == "allow"
+    for bad in ("https://flipkart-offers.shop/", "https://flipkart.scam.in/", "https://f1ipkart.com/", "https://example.org/"):
+        assert s.check(Action("navigate", url=bad), PAGE).verdict == "block", bad
+
+
+def test_add_to_cart_is_allowed_but_buying_asks_first():
+    s = SafetyLayer(allowed_hosts={"www.flipkart.com"})
+    s.hear("add 1 kg atta to the cart")
+    shop = {"url": "https://www.flipkart.com/p", "text": "", "elements": [
+        {"id": 1, "tag": "button", "text": "Add to cart"}, {"id": 2, "tag": "button", "text": "Buy now"},
+        {"id": 3, "tag": "button", "text": "Place order"}]}
+    assert s.check(Action("click", 1), shop).verdict == "allow"
+    assert s.check(Action("click", 2), shop).verdict == "confirm"
+    assert s.check(Action("click", 3), shop).verdict == "confirm"

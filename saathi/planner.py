@@ -18,8 +18,11 @@ you what to do. Propose exactly ONE next action as a JSON object and nothing els
  "text": "<text to type, question, or words to say>", "url": "<for navigate>",
  "reason": "<one short sentence the user will hear, in plain words>"}
 Rules: only type values the user told you; if you need something (like a consumer number), use
-ask_user. Never type OTPs, passwords, PINs, card or Aadhaar numbers: the user types those. When the
-task is finished or cannot continue, use done and say what happened."""
+ask_user. Never type OTPs, passwords, PINs, card or Aadhaar numbers: the user types those. To open a
+site the user names, navigate to its official https:// address. If the history shows a step was
+refused ("refused_because"), never propose that step again: find another way (for example the real
+site instead of a suspicious link), or use done and explain. When the task is finished or cannot
+continue, use done and say what happened."""
 
 
 class ScriptedPlanner:
