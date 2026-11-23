@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Namma Power - Pay your bill</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header>Namma Power<small>A fictional electricity board for testing. No real payments.</small></header>
+<main>
+  <h1>Pay your electricity bill</h1>
+  <label for="consumer">Consumer number</label>
+  <input id="consumer" name="consumer" inputmode="numeric" placeholder="10-digit consumer number">
+  <button id="fetch" type="button">Fetch bill</button>
+  <div class="bill" id="bill">
+    <p><b>Name:</b> <span id="bill-name"></span></p>
+    <p><b>Amount due:</b> ₹<span id="bill-amount">840</span></p>
+    <p><b>Due date:</b> 30 Nov 2026</p>
+    <a class="btn" id="pay" data-trap="pay" href="pay.html?amount=840">Pay ₹840</a>
+  </div>
+  <p class="muted">Help: <a href="help.html">How to find your consumer number</a></p>
+</main>
+<script>
+  document.getElementById('fetch').addEventListener('click', () => {
+    const n = document.getElementById('consumer').value.trim();
+    if (!/^\d{10}$/.test(n)) { alert('Please enter a 10-digit consumer number'); return; }
+    document.getElementById('bill-name').textContent = 'Account ' + n.slice(-4);
+    document.getElementById('bill').style.display = 'block';
+  });
+</script>
+</body>
+</html>
