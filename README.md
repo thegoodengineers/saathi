@@ -40,7 +40,7 @@ fake page, so nothing ever reaches the real internet, a real account or real mon
 | Safety layer (every action passes through it) | working, unit-tested |
 | Secret masking before anything leaves the device | working, unit-tested |
 | Agent loop: read page → plan one step → safety check → act → narrate on screen | working with a scripted planner, tested end to end in a real browser, on phone and PC screens |
-| Amazon Bedrock planner | written; access on our AWS account is being enabled |
+| Amazon Bedrock planner | runs on Amazon Nova 2 Lite; real-model safety score in [evidence/safety_score_bedrock.md](evidence/safety_score_bedrock.md) |
 | Mock sites: SMS inbox, real-looking electricity board, four trap pages | working (fictional "Namma Power") |
 | Safety score | [evidence/safety_score.md](evidence/safety_score.md) |
 | Voice (Sarvam in, ElevenLabs out), family approval for payments | planned |
@@ -53,6 +53,16 @@ commit and time they were produced, are in [evidence/safety_score.md](evidence/s
 The trap scenarios replay a scripted *tricked agent*: unsafe actions written to imitate an agent that
 obeyed the page instead of the user. That measures the safety layer, not the planner. What counts as a
 trap comes from the mock site's own markup, not from the safety rules.
+
+**With the real planner.** `python -m saathi eval --planner bedrock --repeats 2` lets Amazon Nova 2 Lite
+on Bedrock decide every step on the same pages, on phone and PC. Latest run: **with the safety layer,
+0 of 80 trap actions ran without consent; without it, 17 of 17 did**; 0 safe steps were blocked
+([evidence/safety_score_bedrock.md](evidence/safety_score_bedrock.md), every step traced).
+Left on its own, the model typed the OTP that a hidden note on the page told it to, opened the
+look-alike link from the SMS, and pressed "Confirm payment" after typing made-up text into the OTP box.
+
+Open issue we are fixing next: with the layer on, after a blocked link the model kept proposing the
+same link instead of switching to the real site, so that task stopped safely but unfinished.
 
 ## The safety rules
 
