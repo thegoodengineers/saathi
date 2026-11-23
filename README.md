@@ -77,6 +77,20 @@ same link instead of switching to the real site, so that task stopped safely but
 
 Code: [saathi/safety.py](saathi/safety.py) · tests: [tests/test_safety.py](tests/test_safety.py)
 
+## The Saathi button (everyday use)
+
+A round **S** button floats on top of every window. Tap it, type what you need, and Saathi does it in
+its own browser window. It turns orange while working, amber when it needs your **Yes / No**, red when
+it refused something (with the reason), and green when done. Drag it anywhere.
+
+It is a desktop window, not part of any web page, so no website can press it or send it commands.
+
+```bash
+python -m saathi setup        # once: saves your AI settings privately and adds a 'Saathi' desktop icon
+```
+
+After that, double-click **Saathi** on the desktop. (Voice input in Kannada and Hindi comes next.)
+
 ## Use it in your own browser (Opera, Chrome, Edge)
 
 Saathi drives any Chromium-family browser: Chrome, Edge, Opera, Opera GX, Brave, Vivaldi (checked on

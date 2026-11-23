@@ -46,6 +46,14 @@ def main() -> None:
     at.add_argument("--allow", nargs="*", default=[], help="sites Saathi may open, e.g. www.myscheme.gov.in")
     at.add_argument("--open", default=None, help="URL to open first")
     at.add_argument("--goal", default=None, help="do this one task and stop (otherwise asks in a loop)")
+    b = sub.add_parser("bubble", help="the floating Saathi button: tap it and say what you need")
+    b.add_argument("--browser", default="opera-gx", help="chrome, edge, opera, opera-gx, brave, vivaldi")
+    b.add_argument("--port", type=int, default=9222)
+    b.add_argument("--allow", nargs="*", default=[])
+    su = sub.add_parser("setup", help="save your AI settings privately and add a Saathi desktop shortcut")
+    su.add_argument("--browser", default="opera-gx")
+    sc = sub.add_parser("shortcut", help="only add the Saathi desktop shortcut")
+    sc.add_argument("--browser", default="opera-gx")
     a = ap.parse_args()
 
     from .agent import run
@@ -111,6 +119,18 @@ def main() -> None:
                 if a.goal:
                     break
         print("Disconnected. Your browser stays open.")
+    elif a.cmd == "bubble":
+        from .bubble import main as bubble_main
+
+        bubble_main(a.browser, a.port, a.allow)
+    elif a.cmd == "setup":
+        from .bubble import setup
+
+        setup(a.browser)
+    elif a.cmd == "shortcut":
+        from .bubble import create_shortcut
+
+        print(create_shortcut(a.browser))
     elif a.cmd == "shots":
         from .shots import capture
 
