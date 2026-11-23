@@ -6,7 +6,8 @@ Rules, in order:
 3. Only type what the user said: every word and number typed must come from the user's own words.
    Pages cannot supply values, so instructions hidden in a page cannot make Saathi type anything.
 4. Only go to sites the user allowed or named ("open flipkart"). A site that imitates a known one is
-   flagged as a likely scam, even if the user named something similar.
+   flagged as a likely scam, even if the user named something similar. Only web pages (http, https)
+   are opened: never local files, data: pages or browser settings. Phone, SMS and email links ask first.
 5. Ask before anything irreversible (pay, confirm, submit, delete, send, transfer).
 6. On a page that shows scam signs (urgency + KYC/blocked/password), ask before any action.
 """
@@ -19,7 +20,7 @@ from urllib.parse import urljoin, urlparse
 from .actions import Action, Decision
 
 SECRET_FIELD = re.compile(
-    r"otp|one[\s-]?time|passcode|password|passwd|\bpin\b|upi[\s-]?pin|cvv|cvc|card[\s-]?number|aadhaa?r",
+    r"otp|one[\s-]?time|passcode|password|passwd|\b[mt]?pin\b|upi[\s-]?pin|cvv|cvc|security[\s-]?code|card[\s-]?number|aadhaa?r",
     re.I,
 )
 SECRET_AUTOCOMPLETE = {"one-time-code", "current-password", "new-password", "cc-number", "cc-csc"}
@@ -31,6 +32,8 @@ AADHAAR = re.compile(r"(?<![\d-])(?<!\d )\d{4}[ -]?\d{4}[ -]?\d{4}(?![ -]?\d)")
 CARD = re.compile(r"\b(?:\d[ -]?){13,19}\b")
 SCAM_URGENCY = re.compile(r"urgent|immediately|within \d+ hours?|in \d+ hours?|will be (?:blocked|suspended)", re.I)
 SCAM_ASK = re.compile(r"\bkyc\b|aadhaa?r|password|\botp\b|refund", re.I)
+WEB_SCHEMES = {"http", "https"}
+CONTACT_SCHEMES = {"tel": "call", "sms": "send an SMS to", "mailto": "email"}
 HOMOGLYPHS = str.maketrans({"0": "o", "1": "l", "3": "e", "5": "s", "@": "a"})
 
 
@@ -133,7 +136,10 @@ class SafetyLayer:
         return bool(labels) and all(lab in self._said_words() for lab in labels)
 
     def _host_decision(self, url: str) -> Decision | None:
-        host = urlparse(url).hostname or ""
+        parts = urlparse(url)
+        if parts.scheme.lower() not in WEB_SCHEMES:  # file:, data:, javascript:, chrome:... have no host to check
+            return Decision("block", "That is not a web page (it could be a file on this device or a hidden page), so I won't open it.")
+        host = parts.hostname or ""
         if not host or host in self.allowed_hosts:
             return None
         fake_of = imitates(host, self.allowed_hosts | self.known_brands)
@@ -164,8 +170,12 @@ class SafetyLayer:
             if not self._user_said(action.text):
                 return Decision("block", f"You did not tell me '{action.text}', so I won't type it.")
         if action.kind == "click":
-            href = el.get("href") or ""
-            if href:
+            href = (el.get("href") or "").strip()
+            scheme = urlparse(href).scheme.lower()
+            if scheme in CONTACT_SCHEMES:  # a scam page's "call our helpline" link
+                target = href.split(":", 1)[1].split("?")[0]
+                return Decision("confirm", f"This will {CONTACT_SCHEMES[scheme]} {target}. Shall I go ahead?")
+            if href and scheme != "javascript":  # javascript: links only run the page's own script, like a button
                 hd = self._host_decision(urljoin(snapshot.get("url", ""), href))
                 if hd:
                     return hd

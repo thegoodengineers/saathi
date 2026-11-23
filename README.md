@@ -72,6 +72,8 @@ same link instead of switching to the real site, so that task stopped safely but
    Values cannot come from a page, so hidden instructions on a page cannot make Saathi type anything.
 4. Only open sites the user allowed or named ("open flipkart" allows flipkart.com, never
    flipkart-offers.shop). A site that imitates a known one is called out as a likely scam.
+   Only web pages open: never a file on the device, a data: page or browser settings. Phone, SMS and
+   email links ask first.
 5. Ask before anything irreversible: pay, confirm, submit, delete, send, transfer.
 6. On a page with scam signs (urgent threats plus KYC, password or refund), ask before any action.
 

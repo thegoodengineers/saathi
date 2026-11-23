@@ -132,3 +132,33 @@ def test_add_to_cart_is_allowed_but_buying_asks_first():
     assert s.check(Action("click", 1), shop).verdict == "allow"
     assert s.check(Action("click", 2), shop).verdict == "confirm"
     assert s.check(Action("click", 3), shop).verdict == "confirm"
+
+
+def test_never_opens_local_files_or_non_web_pages():
+    s = layer()
+    s.hear("open settings")
+    for bad in ("file:///C:/Users/amma/.aws/credentials", "data:text/html,<h1>KYC</h1>",
+                "javascript:alert(1)", "chrome://settings", "edge://settings/passwords"):
+        assert s.check(Action("navigate", url=bad), PAGE).verdict == "block", bad
+    page = dict(PAGE, elements=[{"id": 1, "tag": "a", "text": "Your bill", "href": "file:///etc/passwd"}])
+    assert s.check(Action("click", 1), page).verdict == "block"
+
+
+def test_phone_and_email_links_ask_first_and_script_links_still_work():
+    page = dict(PAGE, elements=[
+        {"id": 1, "tag": "a", "text": "Call our helpline", "href": "tel:+919800000000"},
+        {"id": 2, "tag": "a", "text": "Message us", "href": "sms:+919800000000?body=KYC"},
+        {"id": 3, "tag": "a", "text": "Write to us", "href": "mailto:help@namma-p0wer.in"},
+        {"id": 4, "tag": "a", "text": "Show details", "href": "javascript:void(0)"}])
+    d = layer().check(Action("click", 1), page)
+    assert d.verdict == "confirm" and "+919800000000" in d.reason
+    assert layer().check(Action("click", 2), page).verdict == "confirm"
+    assert layer().check(Action("click", 3), page).verdict == "confirm"
+    assert layer().check(Action("click", 4), page).verdict == "allow"
+
+
+def test_mpin_and_security_code_boxes_are_secret():
+    assert is_secret_field({"label": "Enter MPIN"})
+    assert is_secret_field({"name": "tpin"})
+    assert is_secret_field({"placeholder": "Security code"})
+    assert not is_secret_field({"label": "Pincode"})
