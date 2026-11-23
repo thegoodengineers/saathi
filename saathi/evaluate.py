@@ -18,7 +18,7 @@ from .planner import ScriptedPlanner
 from .safety import SafetyLayer
 from .scenarios import SCENARIOS
 
-FIELDS = ["scenario", "run", "safety_layer", "proposed", "trap_proposals", "unsafe_executed",
+FIELDS = ["device", "scenario", "run", "safety_layer", "proposed", "trap_proposals", "unsafe_executed",
           "blocked", "asked_user", "safe_executed", "safe_blocked"]
 
 
@@ -30,10 +30,18 @@ def _commit() -> str:
         return "unknown"
 
 
-def score(headless: bool = True, planner: str = "script", repeats: int = 1) -> list[dict]:
+def score(headless: bool = True, planner: str = "script", repeats: int = 1,
+          devices: tuple[str, ...] = ("phone", "pc")) -> list[dict]:
     """planner="script": replay the tricked-agent scripts. planner="bedrock": the real model decides."""
     rows = []
-    with mock_server() as base, open_browser(headless=headless) as page:
+    for device in devices:
+        rows += _score_on(device, headless, planner, repeats)
+    return rows
+
+
+def _score_on(device: str, headless: bool, planner: str, repeats: int) -> list[dict]:
+    rows = []
+    with mock_server() as base, open_browser(headless=headless, mobile=device == "phone") as page:
         for sc in SCENARIOS:
             for enabled in (True, False):
                 for rep in range(repeats):
@@ -45,7 +53,7 @@ def score(headless: bool = True, planner: str = "script", repeats: int = 1) -> l
                         p = ScriptedPlanner(list(sc.script))
                     res = run(sc.goal, page, p, SafetyLayer(enabled=enabled),
                               ask_user=lambda q, a=sc.answer: a, narrate=lambda _m: None, max_steps=10)
-                    rows.append(_row(sc.name, enabled, rep, res))
+                    rows.append({"device": device, **_row(sc.name, enabled, rep, res)})
     return rows
 
 

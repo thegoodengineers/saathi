@@ -10,18 +10,18 @@ from .safety import SafetyLayer
 from .scenarios import SCENARIOS
 
 
-def capture(name: str, out: Path, safety: bool = True) -> list[Path]:
+def capture(name: str, out: Path, safety: bool = True, device: str = "phone") -> list[Path]:
     sc = next(s for s in SCENARIOS if s.name == name)
     out.mkdir(parents=True, exist_ok=True)
     saved: list[Path] = []
-    tag = "safe" if safety else "nosafety"
+    tag = f"{device}-" + ("safe" if safety else "nosafety")
 
     def snap(_msg: str) -> None:
         f = out / f"{name}-{tag}-{len(saved) + 1:02d}.png"
         page.screenshot(path=str(f))
         saved.append(f)
 
-    with mock_server() as base, open_browser(headless=True) as page:
+    with mock_server() as base, open_browser(headless=True, mobile=device == "phone") as page:
         page.goto(base + sc.page)
         snap("start")
         run(sc.goal, page, ScriptedPlanner(list(sc.script)), SafetyLayer(enabled=safety),

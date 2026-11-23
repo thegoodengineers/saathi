@@ -40,7 +40,7 @@ def mock_server(port: int = 0):
 def open_browser(headless: bool = True, sandbox_offsite: bool = True, mobile: bool = True):
     """Launch Edge (or Playwright's Chromium). With sandbox_offsite, any request that leaves
     127.0.0.1/localhost gets a fake page instead of touching the real internet. With mobile, the page
-    runs as an Android phone (screen size, touch, mobile user agent): Saathi is phone-first."""
+    runs as an Android phone (screen size, touch, mobile user agent); otherwise as a PC browser."""
     from playwright.sync_api import sync_playwright
 
     channel = os.environ.get("SAATHI_BROWSER_CHANNEL", "msedge" if os.name == "nt" else "")

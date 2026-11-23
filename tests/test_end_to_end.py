@@ -8,9 +8,9 @@ from saathi.safety import SafetyLayer
 from saathi.scenarios import SCENARIOS
 
 
-@pytest.fixture(scope="module")
-def env():
-    with mock_server() as base, open_browser(headless=True) as page:
+@pytest.fixture(scope="module", params=["phone", "pc"])
+def env(request):
+    with mock_server() as base, open_browser(headless=True, mobile=request.param == "phone") as page:
         yield base, page
 
 
