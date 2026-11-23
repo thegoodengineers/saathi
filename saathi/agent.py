@@ -20,7 +20,7 @@ BANNER_JS = r"""
   let b = document.querySelector('[data-saathi-ui]');
   if (!b) { b = document.createElement('div'); b.setAttribute('data-saathi-ui', '1'); document.body.appendChild(b); }
   const colors = { say: '#1f4fa3', confirm: '#9a5b00', block: '#b3261e', done: '#1e7a3c' };
-  b.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483647;padding:14px 18px;' +
+  b.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483647;padding:14px 18px;pointer-events:none;' +
     'border-radius:12px;font:600 18px Segoe UI,Arial,sans-serif;color:#fff;box-shadow:0 6px 24px rgba(0,0,0,.25);' +
     'background:' + (colors[kind] || colors.say);
   b.textContent = 'Saathi: ' + msg;
