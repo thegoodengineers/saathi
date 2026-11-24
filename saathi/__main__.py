@@ -97,10 +97,9 @@ def main() -> None:
             run(a.goal, page, planner, SafetyLayer(allowed_hosts=allowed), ask_user=_ask, pause=0.8)
             page.wait_for_timeout(4000)
     elif a.cmd == "attach":
-        from urllib.parse import urlparse
-
         from .browser import connect_browser, launch_browser
         from .planner import BedrockPlanner
+        from .safety import trusted_tab_host
 
         planner = BedrockPlanner()
         if a.browser:
@@ -112,7 +111,7 @@ def main() -> None:
                 if not goal:
                     break
                 # Allowed: the site you are on now, plus any you listed. Everything else is refused.
-                allowed = {h for h in {urlparse(page.url).hostname or "", *a.allow} if h}
+                allowed = {h for h in {trusted_tab_host(page.url), *a.allow} if h}
                 print(f"Allowed sites: {', '.join(sorted(allowed)) or 'none (use --allow)'}")
                 res = run(goal, page, planner, SafetyLayer(allowed_hosts=allowed), ask_user=_ask, pause=0.8)
                 print(f"\nSaathi: {res.outcome or 'Stopped.'}")

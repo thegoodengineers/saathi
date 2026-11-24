@@ -95,18 +95,51 @@ def _edit_distance(a: str, b: str) -> int:
     return prev[-1]
 
 
+# Real sites that scam messages most often copy, so a look-alike is caught even when the user names it.
+# The fictional Namma Power board is here for the demos. Its own pages and subdomains always pass.
+KNOWN_SITES = frozenset({
+    "nammapower.in",
+    "sbi.co.in", "onlinesbi.sbi", "hdfcbank.com", "icicibank.com", "axisbank.com", "kotak.com",
+    "pnbindia.in", "bankofbaroda.in", "canarabank.com", "unionbankofindia.co.in", "idfcfirstbank.com",
+    "paytm.com", "paytmbank.com", "paytmmall.com", "phonepe.com", "npci.org.in", "bhimupi.org.in",
+    "uidai.gov.in", "incometax.gov.in", "epfindia.gov.in", "indiapost.gov.in", "irctc.co.in",
+    "digilocker.gov.in", "cybercrime.gov.in",
+    "flipkart.com", "amazon.in", "amazon.com", "amazonpay.in", "myntra.com", "meesho.com",
+    "swiggy.com", "zomato.com", "bigbasket.com", "jiomart.com",
+})
+
+
+def _is_site_or_subdomain(host: str, site: str) -> bool:
+    host = host.lower().removeprefix("www.")
+    return host == site or host.endswith("." + site)
+
+
 def imitates(host: str, allowed: set[str]) -> str | None:
-    """Return the allowed host that `host` imitates, if any."""
+    """Return the allowed or known site that `host` imitates, if any: a near-identical spelling
+    (namma-p0wer.in, paytrn.com) or the site's name with extra words added (nammapowerkyc.in,
+    flipkart-offers.shop). A site's own subdomains (m.flipkart.com) are never imitations."""
+    if any(_is_site_or_subdomain(host, good) for good in allowed):
+        return None
     n = _norm_host(host)
-    for good in allowed:
+    for good in sorted(allowed):
         g = _norm_host(good)
-        if host != good and (n == g or (len(g) > 5 and _edit_distance(n, g) <= 2)):
+        name = g.split(".")[0]  # "nammapower" from nammapower.in
+        if n == g or (len(g) > 5 and _edit_distance(n, g) <= 2) or (len(name) >= 5 and name in n):
             return good
     return None
 
 
 WORD = re.compile(r"[^\W\d_]+|\d+")  # runs of letters (any script, so Kannada works) or of digits
 GENERIC_LABELS = {"www", "m", "com", "in", "org", "net", "co", "gov", "nic", "edu", "ac", "info", "io"}
+# Everyday words: saying "check my bill" names no site, so bill.com or is.it is not "named".
+EVERYDAY_WORDS = {
+    "a", "an", "and", "the", "to", "of", "for", "in", "on", "is", "it", "this", "that", "my", "me", "i", "you",
+    "please", "check", "open", "go", "get", "show", "find", "see", "real", "true", "fake", "help", "now",
+    "today", "tonight", "pay", "bill", "bills", "power", "electricity", "bank", "account", "online", "login",
+    "kyc", "update", "verify", "refund", "offer", "offers", "free", "gift", "prize", "win", "secure", "support",
+    "care", "service", "official", "site", "web", "page", "home", "link", "message", "sms", "urgent", "alert",
+    "buy", "order", "cart", "add", "book", "ticket", "money", "send",
+}
 
 
 def _words(text: str) -> set[str]:
@@ -117,11 +150,18 @@ def scam_signs(page_text: str) -> bool:
     return bool(SCAM_URGENCY.search(page_text) and SCAM_ASK.search(page_text))
 
 
+def trusted_tab_host(url: str, known: frozenset[str] | set[str] = KNOWN_SITES) -> str:
+    """The host of the tab the user is on, to allow for the next task; "" if it imitates a known site.
+    Being on a look-alike page (say, from a link the user tapped) must not make that page trusted."""
+    host = urlparse(url).hostname or ""
+    return "" if not host or imitates(host, set(known)) else host
+
+
 @dataclass
 class SafetyLayer:
     allowed_hosts: set[str] = field(default_factory=lambda: {"127.0.0.1", "localhost"})
     # Names users would recognise, used only to spot imitations (e.g. a look-alike of the real board).
-    known_brands: set[str] = field(default_factory=lambda: {"nammapower.in"})
+    known_brands: set[str] = field(default_factory=lambda: set(KNOWN_SITES))
     user_words: list[str] = field(default_factory=list)  # the goal + every answer the user gave
     enabled: bool = True
 
@@ -140,9 +180,15 @@ class SafetyLayer:
 
     def _user_named(self, host: str) -> bool:
         """The user named this site: every meaningful part of its address is a word they said.
-        "open flipkart" allows www.flipkart.com, but not flipkart-offers.shop or flipkart.scam.in."""
+        "open flipkart" allows www.flipkart.com, but not flipkart-offers.shop or flipkart.scam.in.
+        A message the user forwards is not the user naming its link: words from anything they passed
+        on that shows scam signs only count for known real sites ("go to the real nammapower")."""
         labels = [lab for lab in host.lower().split(".") if lab and lab not in GENERIC_LABELS]
-        return bool(labels) and all(lab in self._said_words() for lab in labels)
+        if not labels or all(lab in EVERYDAY_WORDS for lab in labels):
+            return False
+        known = any(_is_site_or_subdomain(host, site) for site in self.known_brands)
+        words = set().union(*(_words(w) for w in self.user_words if known or not scam_signs(w)))
+        return all(lab in words for lab in labels)
 
     def _host_decision(self, url: str) -> Decision | None:
         parts = urlparse(url)

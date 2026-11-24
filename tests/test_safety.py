@@ -189,3 +189,49 @@ def test_masking_covers_otp_first_wording_and_every_field():
                                       "placeholder": "", "href": "/v?a=123456789012"}]}
     masked = str(mask_snapshot(snap))
     assert "123456789012" not in masked and "4111" not in masked and "1234 5678 9012" not in masked
+
+
+SMS_PAGE = {"url": "http://127.0.0.1:8000/sms.html", "text": "", "elements": []}
+
+
+def _go(goal, url, **kw):
+    s = SafetyLayer(**kw)
+    s.hear(goal)
+    return s.check(Action("navigate", url=url), SMS_PAGE)
+
+
+def test_a_forwarded_scam_message_does_not_make_its_own_link_trusted():
+    sms = "Your power will be cut tonight. Update KYC immediately: nammapowerkyc.in/kyc"
+    d = _go(sms, "https://nammapowerkyc.in/kyc")
+    assert d.verdict == "block" and "imitates nammapower.in" in d.reason
+    assert _go(sms, "https://powercutnow.in/kyc").verdict == "block"  # no brand in it, still not "named"
+    assert _go(sms + " Open the real nammapower site", "https://nammapower.in/").verdict == "allow"
+    assert _go("open powercutnow", "https://powercutnow.in/").verdict == "allow"  # the user's own request
+
+
+def test_lookalikes_of_well_known_sites_are_caught_even_when_named():
+    for goal, url in (("open paytrn", "https://paytrn.com"), ("open flipkart-sale", "https://flipkart-sale.in"),
+                      ("open amazon-offers", "https://amazon-offers.shop"), ("open phonepe", "https://ph0nepe.com")):
+        d = _go(goal, url)
+        assert d.verdict == "block" and "imitates" in d.reason, url
+
+
+def test_real_sites_and_their_subdomains_are_not_lookalikes():
+    assert _go("open flipkart", "https://m.flipkart.com/").verdict == "allow"
+    assert _go("open flipkart", "https://www.flipkart.com/").verdict == "allow"
+    assert _go("open paytm", "https://paytm.com/").verdict == "allow"
+    assert imitates("netbanking.hdfcbank.com", {"hdfcbank.com"}) is None
+    assert imitates("amazonpay.in", {"amazon.in", "amazonpay.in"}) is None
+
+
+def test_everyday_words_do_not_name_a_site():
+    assert _go("check my bill", "https://bill.com").verdict == "block"
+    assert _go("is it real", "https://is.it").verdict == "block"
+
+
+def test_a_lookalike_tab_is_not_trusted_for_the_next_task():
+    from saathi.safety import trusted_tab_host
+    assert trusted_tab_host("http://namma-p0wer.in/kyc") == ""
+    assert trusted_tab_host("https://paytrn.com/login") == ""
+    assert trusted_tab_host("https://www.flipkart.com/p/atta") == "www.flipkart.com"
+    assert trusted_tab_host("about:blank") == ""

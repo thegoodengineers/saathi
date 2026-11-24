@@ -71,7 +71,9 @@ same link instead of switching to the real site, so that task stopped safely but
 3. Only type what the user said: every word and number typed must come from the user's own words.
    Values cannot come from a page, so hidden instructions on a page cannot make Saathi type anything.
 4. Only open sites the user allowed or named ("open flipkart" allows flipkart.com, never
-   flipkart-offers.shop). A site that imitates a known one is called out as a likely scam.
+   flipkart-offers.shop). A site that imitates a known one is called out as a likely scam: Saathi
+   knows the real addresses of major Indian banks, payment apps, government services and shops. A link
+   inside a scam message the user forwards never counts as a site they named.
    Only web pages open: never a file on the device, a data: page or browser settings. Phone, SMS and
    email links ask first.
 5. Ask before anything irreversible: pay, confirm, submit, delete, send, transfer, recharge, approve.

@@ -12,7 +12,6 @@ import queue
 import threading
 from dataclasses import dataclass, field
 from pathlib import Path
-from urllib.parse import urlparse
 
 COLORS = {"idle": "#1f4fa3", "working": "#c2410c", "ask": "#a16207", "done": "#1e7a3c", "block": "#b3261e"}
 KEY = "#ff00fe"  # painted transparent on Windows, so the bubble shows as a circle
@@ -57,14 +56,14 @@ def worker(ch: Channel, open_page, make_planner, allow: set[str] | None = None) 
     """Runs on its own thread until a None command arrives. open_page() is a context manager that
     yields the browser tab; make_planner() builds the planner on this thread."""
     from .agent import run
-    from .safety import SafetyLayer
+    from .safety import SafetyLayer, trusted_tab_host
 
     try:
         planner = make_planner()
         with open_page() as page:
             ch.events.put(("idle", "Ready. Tap me and tell me what to do."))
             while (goal := ch.commands.get()) is not None:
-                allowed = {h for h in {urlparse(page.url).hostname or "", *(allow or set())} if h}
+                allowed = {h for h in {trusted_tab_host(page.url), *(allow or set())} if h}
                 ch.events.put(("working", f"Working on: {goal}"))
                 try:
                     res = run(goal, page, planner, SafetyLayer(allowed_hosts=allowed),
